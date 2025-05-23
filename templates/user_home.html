@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width;initial-scale=1.0">
+        <title>Home</title>
+        <link rel="stylesheet" href="/static/nav.css">
+        <link rel="stylesheet" href="/static/home.css">
+    </head>
+    <body>
+        <header>
+            <nav>
+                <div class="navbar">
+                    <a href="{{url_for('user_home')}}">Home</a>
+                    <a href="{{url_for('user_score')}}">Scores</a>
+                    <a href="{{url_for('user_summary')}}">Summary</a>
+                </div>
+                <div class="down">
+                    <div class="search-container">
+                        <select id="cat">
+                            <option value="subject">Subject</option>
+                            <option value="chapter">Chapter</option>
+                        </select>
+                        <input type="search" id="search" placeholder="Search...">
+                    </div>
+                    <div class="down2">
+                        <button>Welcome {{name}}</button>
+                        <div class="drop">
+                            <a href="{{url_for('edit_profile')}}">Edit profile</a>
+                            <a href="{{url_for('logout')}}">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </header>
+        <main>
+            {% with msgs = get_flashed_messages(with_categories=True) %}
+                {% if msgs %}
+                    {% for cat, msg in msgs %}
+                        <div class="cat">{{ msg }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% for sub in sub_l %}
+            <table class="subtab">
+                <caption class="subname">{{ sub['name'] }}</caption>
+                <tr>
+                    <th>Chapter name</th>
+                    <th>No. of Questions</th>
+                    <th>Actions</th>
+                </tr>
+                {% for chap in sub['chapters'] %}
+                <tr class="crow">
+                    <td class="cname">{{ chap['name'] }}</td>
+                    <td>{{ chap['q_count'] }}</td>
+                    <td>
+                        <b><a style="color: black;" href="{{ url_for('user_viewquiz', chapter_id=chap['id']) }}">View</a></b>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% endfor %}
+        </main>
+        <script src="static/homesearch.js"></script>
+    </body>
+</html>
