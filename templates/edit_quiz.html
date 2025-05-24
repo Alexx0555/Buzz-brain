@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width;initial-scale=1.0">
+        <title>Edit Quiz</title>
+        <link rel="stylesheet" href="/static/nav.css">
+        <link rel="stylesheet" href="/static/addeditany.css">
+    </head>
+    <body>
+        <header>
+            <nav>
+                <div class="navbar">
+                    <a href="{{url_for('admin_home')}}">Home</a>
+                    <a href="{{url_for('allusers')}}">Users</a>
+                    <a href="{{url_for('summary')}}">Summary</a>
+                </div>
+                <div class="down">
+                    <div class="down2">
+                    <button>Welcome Admin</button>
+                    <div class="drop">
+                        <a href="{{url_for('logout')}}">Logout</a>
+                    </div>
+                </div>
+            </div>
+            </nav>
+        </header>
+        <main>
+            <div>
+                <form action="{{url_for( 'edit_quiz',chapter_id=chapter_id,quiz_id=quiz['id'] )}}" method="POST">
+                    <label for="qname">Quiz Name:</label>
+                    <input type="text" name="qname" id="qname" value="{{quiz['quiz_name']}}" required>
+                    <br>
+                    <label for="doq">Date of quiz:</label>
+                    <input type="date" name="doq" id="doq" min="2025-03-15" value="{{quiz['date_of_quiz']}}" required>
+                    <br>
+                    <b><label for="tdur">Time Duration:(in minutes)</label></b>
+                    <input type="number" name="tdur" id="tdur" min="5" value="{{quiz['time_duration']}}" required placeholder="Enter in mins">
+                    <br>
+                    
+                    <input type="submit" value="Edit Quiz">
+                    <a class="goback" href="{{url_for('view_quizzes',chapter_id=chapter_id )}}">
+                    Go Back
+                    </a>
+                </form>
+            </div>
+        </main>
+    </body>
+</html>
