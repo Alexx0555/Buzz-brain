@@ -27,6 +27,13 @@
         </header>
         <main>
             <div>
+                {% with msgs = get_flashed_messages(with_categories=True) %}
+                {% if msgs %}
+                    {% for cat, msg in msgs %}
+                        <div class="cat">{{ msg }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
                 <b><legend id="asub">Add Subject</legend></b>
                 <form action="{{url_for('add_sub')}}" method="POST">
                     <label for="sname">Subject Name:</label>
