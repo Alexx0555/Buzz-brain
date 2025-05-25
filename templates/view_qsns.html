@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width;initial-scale=1.0">
+        <title>View Questions</title>
+        <link rel="stylesheet" href="/static/nav.css">
+        <link rel="stylesheet" href="/static/addeditany.css">
+        <style>
+            main{
+                max-width: 1000px;
+                margin:auto;
+                margin-top: 30px;
+                padding: 20px;
+                border-radius: 20px;
+                background-color: rgba(255, 255, 255, 0.4);
+                backdrop-filter: blur(10px);
+            }
+            #qsntable{
+                margin:auto;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+            }
+            .tbut{
+                display: flex;
+                justify-content: space-between;
+                gap: 5px;
+            }
+            a[href*='edit_qsn']{
+                background-color:chocolate ;
+                border-radius: 20px;
+            }
+            a[href*='del_qsn']{
+                background-color: red;
+                border-radius: 20px;
+            }
+            a[href*='edit_qsn']:hover,a[href*='del_qsn']:hover{
+                transform: scale(1.1);
+            }
+            th,td{
+                padding: 10px;
+                background-color: white;
+                border: 1px solid black;
+            }
+            th{
+                background-color: violet;
+            }
+            @media(max-width:770px){
+                #qsntable{
+                    display: block;
+                    width: 100%;
+                    overflow-x: auto;
+                }   
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <nav>
+                <div class="navbar">
+                    <a href="{{url_for('admin_home')}}">Home</a>
+                    <a href="{{url_for('allusers')}}">Users</a>
+                    <a href="{{url_for('summary')}}">Summary</a>
+                </div>
+                <div class="down">
+                    <div class="down2">
+                    <button>Welcome Admin</button>
+                    <div class="drop">
+                        <a href="{{url_for('logout')}}">Logout</a>
+                    </div>
+                </div>
+            </div>
+            </nav>
+        </header>
+        <main>
+            <h1>Questions for {{quiz_name}}</h1>
+            {% with msgs =get_flashed_messages(with_categories=true) %}
+                {% if msgs %}   
+                    {% for cat,msg in msgs %}
+                    <div class="cat">{{msg}}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <table id="qsntable">
+                <tr>
+                    <th>ID</th>
+                    <th>Question title</th>
+                    <th>Option 1</th>
+                    <th>Option 2</th>
+                    <th>Option 3</th>
+                    <th>Option 4</th>
+                    <th>Correct option</th>
+                    <th>Actions</th>
+                </tr>
+                {% for qsn in avail_qsn %}
+                <tr>
+                    <td>{{qsn['id']}}</td>
+                    <td>{{qsn['question_title']}}</td>
+                    <td>{{qsn['option1']}}</td>
+                    <td>{{qsn['option2']}}</td>
+                    <td>{{qsn['option3']}}</td>
+                    <td>{{qsn['option4']}}</td>
+                    <td>{{qsn['correct_option']}}</td>
+                    <td class="tbut">
+                        <a style="color: black;" href="{{url_for('edit_qsn',quiz_id=quiz_id,chapter_id=chapter_id,qsn_id=qsn['id'] )}}">Edit</a>
+                        <a style="color: black;" href="{{url_for('del_qsn',quiz_id=quiz_id,chapter_id=chapter_id,qsn_id=qsn['id'] )}}"onclick="return confirm('Are you sure you want to delete the question?')">Delete</a>    
+                </td>
+                </tr>
+                {% endfor %}
+            </table>
+            <a class="qadd" href="{{ url_for('add_qsn',chapter_id=chapter_id,quiz_id=quiz_id) }}">Add a question</a>
+        </main>
+            <a class="goback" style="text-align: center;" href="{{ url_for('view_quizzes',chapter_id=chapter_id )}}">Go back to quizzes</a>
+    </body>
+    <script>
+        function filterqsn(){
+            searchq=document.getElementById('search').value.toLowerCase();
+            tab=document.getElementById('qsntable');
+            rows=tab.getElementsByTagName('tr');
+
+            for(let i=1;i<rows.length;i++){
+                    qtit=rows[i].getElementsByTagName("td")[1];
+                    if(qtit){
+                        let txt=qtit.textContent || qtit.innerText;
+                        if(txt.toLowerCase().indexOf(searchq)>-1){
+                            rows[i].style.display="";
+                        }
+                        else{
+                            rows[i].style.display="none";
+                        }
+                    }
+                }
+        }
+    </script>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width;initial-scale=1.0">
+        <title>View Quizzes</title>
+        <link rel="stylesheet" href="/static/nav.css">
+        <link rel="stylesheet" href="/static/addeditany.css">
+        <style>
+            main{
+                max-width: 1000px;
+                margin:auto;
+                margin-top: 30px;
+                padding: 20px;
+                border-radius: 20px;
+                background-color: rgba(255, 255, 255, 0.4);
+                backdrop-filter: blur(10px);
+            }
+            #qtable{
+                margin:auto;
+                margin-bottom: 20px;
+                border-collapse: collapse;
+                table-layout: fixed;
+            }
+            .tbut{
+                display: flex;
+                justify-content: space-between;
+                gap: 5px;
+            }
+            a[href*='view_qsns']{
+                background-color: rgb(91, 176, 91);
+                border-radius: 20px;
+            }
+            a[href*='edit_quiz']{
+                background-color:chocolate ;
+                border-radius: 20px;
+            }
+            a[href*='del_quiz']{
+                background-color: red;
+                border-radius: 20px;
+            }
+            a[href*='view_qsns']:hover,a[href*='edit_quiz']:hover,a[href*='del_quiz']:hover{
+                transform: scale(1.1);
+            }
+            th,td{
+                padding: 10px;
+                background-color: white;
+                border: 1px solid black;
+            }
+            th{
+                background-color: violet;
+            }
+            @media(max-width:770px){
+                #qtable{
+                    display: block;
+                    width: 100%;
+                    overflow-x: auto;
+                }   
+            }
+        </style> 
+    </head>
+    <body>
+        <header>
+            <nav>
+                <div class="navbar">
+                    <a href="{{url_for('admin_home')}}">Home</a>
+                    <a href="{{url_for('allusers')}}">Users</a>
+                    <a href="{{url_for('summary')}}">Summary</a>
+                </div>
+                <div class="down">
+                    <div>
+                        <input type="search" name="search" id="search" placeholder="Search for quizzes..." onkeyup="filterq()">
+                    </div>
+                    <div class="down2">
+                        <button>Welcome Admin</button>
+                        <div class="drop">
+                            <a href="{{url_for('logout')}}">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </header>
+        <main>
+            <h1>Quizzes for {{chap_name}}</h1>
+            {% with msgs =get_flashed_messages(with_categories=true) %}
+                {% if msgs %}   
+                    {% for cat,msg in msgs %}
+                    <div class="cat">{{msg}}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <table id="qtable">
+                <tr>
+                    <th>ID</th>
+                    <th>Quiz Name</th>
+                    <th>Date of Quiz</th>
+                    <th>Time Duration</th>
+                  <th>Number of Questions</th>
+                    <th>Actions</th>
+                </tr>
+                {% for quiz in avail_quiz %}
+                <tr>
+                    <td>{{quiz['id']}}</td>
+                    <td>{{quiz['quiz_name']}}</td>
+                    <td>{{quiz['date_of_quiz']}}</td>
+                    <td>{{quiz['time_duration']}}</td>
+                    <td>{{quiz['q_count']}}</td>
+                    <td class="tbut">
+                        <a style="color: black;" href="{{ url_for('view_qsns',quiz_id=quiz['id'],chapter_id=chapter_id) }}">View</a>
+                        <a style="color: black;" href="{{ url_for('edit_quiz',quiz_id=quiz['id'],chapter_id=chapter_id) }}">Edit</a>
+                        <a style="color: black;" href="{{ url_for('del_quiz',quiz_id=quiz['id'],chapter_id=chapter_id) }}" onclick="return confirm('Are you sure you want to delete the quiz?All the questions of it will also be deleted')">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            <a class="qadd" href="{{ url_for('add_quiz',chapter_id=chapter_id) }}">Add a quiz</a>
+            <a class="goback" href="{{ url_for('admin_home') }}">Go Back</a>
+        </main>
+        <script>
+            function filterq(){
+                let inp=document.getElementById("search");
+                let filter=inp.value.toLowerCase();
+                let tab=document.getElementById("qtable");
+                let rows=tab.getElementsByTagName("tr");
+
+                for(let i=1;i<rows.length;i++){
+                    qtit=rows[i].getElementsByTagName("td")[1];
+                    if(qtit){
+                        let txt=qtit.textContent || qtit.innerText;
+                        if(txt.toLowerCase().indexOf(filter)>-1){
+                            rows[i].style.display="";
+                        }
+                        else{
+                            rows[i].style.display="none";
+                        }
+                    }
+                }
+            }
+        </script>
+    </body>
+</html>
