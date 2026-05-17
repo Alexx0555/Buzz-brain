@@ -84,7 +84,7 @@ curobj.execute('''
 pwd='quizzy'
 
 curobj.execute("""
-INSERT INTO user(id,username,password,full_name,qualification,dob) 
+INSERT OR IGNORE INTO user(id,username,password,full_name,qualification,dob) 
     VALUES (1,'admin',?,'Quiz Master','SDE','N/A')
 """,(generate_password_hash(pwd),))
 
