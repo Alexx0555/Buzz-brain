@@ -76,8 +76,8 @@ curobj.execute('''
     quiz_id INTEGER NOT NULL,
     question_id INTEGER NOT NULL,
     selected_option INTEGER,
-    FOREIGN KEY (score_id) REFERENCES scores(id),
-    FOREIGN KEY (question_id) REFERENCES question(id)
+    FOREIGN KEY (score_id) REFERENCES scores(id) ON DELETE CASCADE,
+    FOREIGN KEY (question_id) REFERENCES question(id) ON DELETE CASCADE
     )
     ''')
 

@@ -28,8 +28,8 @@
         <main>
             <h1>{{sub_name}}</h1>
             <div>
-                <legend>Add Chapter</legend>
-                <form action="{{url_for('edit_chap',chapter_id=chapter['id'] ) }}" method="POST">
+                <legend>Edit Chapter</legend>
+                <form action="{{ url_for('edit_chap', subject_id=chapter['subject_id'], chapter_id=chapter['id']) }}" method="POST">
                     <label for="cname">Chapter Name:</label>
                     <input type="text" name="cname" id="cname" value="{{chapter['name']}}" required>
                     <br>

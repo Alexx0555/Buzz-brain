@@ -11,6 +11,284 @@ app.secret_key="secracy_master"
 def home():
     return redirect('/login')
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # If the user submits the login form
+    if request.method == 'POST':
+        uname = request.form['uname'].strip()
+        pwd = request.form['pwd'].strip()
+
+        # Connect to the database to find the user
+        conn = sql.connect('quiz_database.db')
+        conn.row_factory = sql.Row
+        curr = conn.cursor()
+        curr.execute('SELECT * FROM user WHERE username=?', (uname,))
+        user = curr.fetchone()
+        conn.close()
+
+        # Check if user exists and password matches the hash
+        if user and check_password_hash(user['password'], pwd):
+            # Set session variables used throughout your app
+            session['uid'] = user['id']
+            session['uname'] = user['username']
+            session['fname'] = user['full_name']
+            
+            # Route based on admin or standard user
+            if user['username'] == 'admin':
+                return redirect(url_for('admin_home'))
+            else:
+                return redirect(url_for('user_home'))
+        else:
+            flash('Invalid username or password!', 'error')
+            return redirect(url_for('login'))
+
+    # If it's just a GET request, show the login page
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        uname = request.form['uname'].strip()
+        pwd = request.form['pwd'].strip()
+        fname = request.form['fname'].strip()
+        qual = request.form['qual'].strip()
+        dob = request.form['dob'].strip()
+
+        # Hash the password for security before saving
+        hashed_pwd = generate_password_hash(pwd)
+
+        conn = sql.connect('quiz_database.db')
+        curr = conn.cursor()
+        
+        try:
+            curr.execute('''
+                INSERT INTO user (username, password, full_name, qualification, dob) 
+                VALUES (?, ?, ?, ?, ?)
+            ''', (uname, hashed_pwd, fname, qual, dob))
+            conn.commit()
+            flash('Registration successful! Please login.', 'success')
+            return redirect(url_for('login'))
+        except sql.IntegrityError:
+            # This triggers if the username already exists (since username is UNIQUE in database.py)
+            flash('Username already exists!', 'error')
+            return redirect(url_for('register'))
+        finally:
+            conn.close()
+
+    return render_template('register.html')
+
+@app.route('/admin_home')
+def admin_home():
+    # Security check: bounce non-admins back to login
+    if 'uid' not in session or session.get('uname') != 'admin':
+       return redirect(url_for('login'))
+    
+    conn = sql.connect('quiz_database.db')
+    conn.row_factory = sql.Row
+    curr = conn.cursor()
+    
+    # Get all subjects
+    curr.execute('SELECT id, name from subject')
+    subs = curr.fetchall()
+    sub_l = []
+
+    # Get chapters for each subject
+    for sub in subs:
+        sub_id = sub['id']
+        sub_name = sub['name']
+        curr.execute('''
+            SELECT chapter.id, chapter.name, chapter.subject_id, COUNT(question.id) AS q_count
+            FROM chapter
+            LEFT JOIN quiz ON chapter.id=quiz.chapter_id
+            LEFT JOIN question ON quiz.id=question.quiz_id
+            WHERE chapter.subject_id=?
+            GROUP BY chapter.id
+        ''', (sub_id,))
+        
+        chaps = curr.fetchall()
+        chap_l = []
+        for chap in chaps:
+            chap_l.append({
+                'id': chap['id'], 
+                'name': chap['name'], 
+                'subject_id': chap['subject_id'], 
+                'q_count': chap['q_count']
+            })
+        
+        sub_l.append({'id': sub_id, 'name': sub_name, 'chapters': chap_l})
+    
+    conn.close()
+    return render_template('admin_home.html', sub_l=sub_l)
+
+# --- SUBJECT ROUTES ---
+@app.route('/add_sub', methods=['GET', 'POST'])
+def add_sub():
+    if 'uid' not in session or session.get('uname') != 'admin':
+       return redirect(url_for('login'))
+       
+    if request.method == 'POST':
+        sname = request.form['sname'].strip()
+        sdesc = request.form['sdesc'].strip()
+        
+        conn = sql.connect('quiz_database.db')
+        curr = conn.cursor()
+        try:
+            curr.execute('INSERT INTO subject (name, description) VALUES (?, ?)', (sname, sdesc))
+            conn.commit()
+            flash('Subject added successfully', 'success')
+            return redirect(url_for('admin_home'))
+        except sql.IntegrityError:
+            flash('Subject name already exists', 'error')
+        finally:
+            conn.close()
+            
+    return render_template('add_sub.html')
+
+@app.route('/edit_sub/subject<int:subject_id>', methods=['GET', 'POST'])
+def edit_sub(subject_id):
+    if 'uid' not in session or session.get('uname') != 'admin':
+       return redirect(url_for('login'))
+       
+    conn = sql.connect('quiz_database.db')
+    conn.row_factory = sql.Row
+    curr = conn.cursor()
+    curr.execute('SELECT * FROM subject WHERE id=?', (subject_id,))
+    sub = curr.fetchone()
+    
+    if request.method == 'POST':
+        sname = request.form['sname'].strip()
+        sdesc = request.form['sdesc'].strip()
+        curr.execute('UPDATE subject SET name=?, description=? WHERE id=?', (sname, sdesc, subject_id))
+        conn.commit()
+        conn.close()
+        flash('Subject updated successfully', 'success')
+        return redirect(url_for('admin_home'))
+        
+    conn.close()
+    return render_template('edit_sub.html', sub=sub)
+
+@app.route('/del_sub/subject<int:subject_id>')
+def del_sub(subject_id):
+    if 'uid' not in session or session.get('uname') != 'admin':
+       return redirect(url_for('login'))
+       
+    conn = sql.connect('quiz_database.db')
+    curr = conn.cursor()
+    curr.execute('PRAGMA foreign_keys = ON;') # Required for cascade delete
+    curr.execute('DELETE FROM subject WHERE id=?', (subject_id,))
+    conn.commit()
+    conn.close()
+    flash('Subject deleted successfully', 'success')
+    return redirect(url_for('admin_home'))
+
+# --- CHAPTER ROUTES ---
+@app.route('/add_chap/subject<int:subject_id>', methods=['GET', 'POST'])
+def add_chap(subject_id):
+    if 'uid' not in session or session.get('uname') != 'admin':
+       return redirect(url_for('login'))
+       
+    conn = sql.connect('quiz_database.db')
+    conn.row_factory = sql.Row
+    curr = conn.cursor()
+    curr.execute('SELECT name FROM subject WHERE id=?', (subject_id,))
+    sub = curr.fetchone()
+    
+    if request.method == 'POST':
+        cname = request.form['cname'].strip()
+        cdesc = request.form['cdesc'].strip()
+        try:
+            curr.execute('INSERT INTO chapter (subject_id, name, description) VALUES (?, ?, ?)', (subject_id, cname, cdesc))
+            conn.commit()
+            flash('Chapter added successfully', 'success')
+            return redirect(url_for('admin_home'))
+        except sql.IntegrityError:
+            flash('Chapter name already exists', 'error')
+        finally:
+            conn.close()
+            
+    conn.close()
+    return render_template('add_chap.html', subject_id=subject_id, sub_name=sub['name'] if sub else "")
+
+@app.route('/edit_chap/subject<int:subject_id>/chapter<int:chapter_id>', methods=['GET', 'POST'])
+def edit_chap(subject_id, chapter_id):
+    if 'uid' not in session or session.get('uname') != 'admin':
+       return redirect(url_for('login'))
+       
+    conn = sql.connect('quiz_database.db')
+    conn.row_factory = sql.Row
+    curr = conn.cursor()
+    curr.execute('SELECT * FROM chapter WHERE id=?', (chapter_id,))
+    chapter = curr.fetchone()
+    curr.execute('SELECT name FROM subject WHERE id=?', (subject_id,))
+    sub = curr.fetchone()
+    
+    if request.method == 'POST':
+        cname = request.form['cname'].strip()
+        cdesc = request.form['cdesc'].strip()
+        curr.execute('UPDATE chapter SET name=?, description=? WHERE id=?', (cname, cdesc, chapter_id))
+        conn.commit()
+        conn.close()
+        flash('Chapter updated successfully', 'success')
+        return redirect(url_for('admin_home'))
+        
+    conn.close()
+    return render_template('edit_chap.html', chapter=chapter, sub_name=sub['name'] if sub else "")
+
+@app.route('/del_chap/subject<int:subject_id>/chapter<int:chapter_id>')
+def del_chap(subject_id, chapter_id):
+    if 'uid' not in session or session.get('uname') != 'admin':
+       return redirect(url_for('login'))
+       
+    conn = sql.connect('quiz_database.db')
+    curr = conn.cursor()
+    curr.execute('PRAGMA foreign_keys = ON;') # Required for cascade delete
+    curr.execute('DELETE FROM chapter WHERE id=?', (chapter_id,))
+    conn.commit()
+    conn.close()
+    flash('Chapter deleted successfully', 'success')
+    return redirect(url_for('admin_home'))
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+def edit_profile():
+    if 'uid' not in session:
+        return redirect(url_for('login'))
+        
+    conn = sql.connect('quiz_database.db')
+    conn.row_factory = sql.Row
+    curr = conn.cursor()
+    
+    if request.method == 'POST':
+        uname = request.form['uname'].strip()
+        pwd = request.form['pwd'].strip()
+        fname = request.form['fname'].strip()
+        qual = request.form['qual'].strip()
+        dob = request.form['dob'].strip()
+        
+        hashed_pwd = generate_password_hash(pwd)
+        
+        try:
+            curr.execute('''
+                UPDATE user 
+                SET username=?, password=?, full_name=?, qualification=?, dob=? 
+                WHERE id=?
+            ''', (uname, hashed_pwd, fname, qual, dob, session['uid']))
+            conn.commit()
+            session['uname'] = uname
+            session['fname'] = fname
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('user_home'))
+        except sql.IntegrityError:
+            flash('Username already exists!', 'error')
+        finally:
+            conn.close()
+
+    # Get current user data to pre-fill the form
+    curr.execute('SELECT * FROM user WHERE id=?', (session['uid'],))
+    exuser = curr.fetchone()
+    conn.close()
+    
+    return render_template('edit_profile.html', exuser=exuser)
+
 @app.route('/view_quizzes/chapter<int:chapter_id>',methods=['GET'])
 def view_quizzes(chapter_id):
     if 'uid' not in session or session.get('uname')!='admin':
@@ -90,23 +368,6 @@ def edit_quiz(chapter_id,quiz_id):
         return redirect(url_for('view_quizzes',chapter_id=chapter_id))
     
     return render_template('edit_quiz.html',chapter_id=chapter_id,quiz_id=quiz_id,quiz=quiz)
-
-@app.route('/del_quiz/chapter<int:chapter_id>/quiz<int:quiz_id>',methods=['GET'])
-def del_quiz(chapter_id,quiz_id):
-    if 'uid' not in session or session.get('uname')!='admin':
-       return redirect(url_for('login'))
-     
-    conn=sql.connect('quiz_database.db')
-    curr=conn.cursor()
-    curr.execute('SELECT quiz_name from quiz where id=? and chapter_id=?',(quiz_id,chapter_id))
-    qname=curr.fetchone()
-    curr.execute('DELETE from quiz where id=?',(quiz_id,))
-
-    conn.commit()
-    conn.close()
-
-    flash(f"Quiz {qname[0]} deleted succesfully",'success')
-    return redirect(url_for('view_quizzes',chapter_id=chapter_id))
 
 @app.route('/view_qsns/chapter<int:chapter_id>/quiz<int:quiz_id>')
 def view_qsns(chapter_id,quiz_id):
@@ -194,18 +455,40 @@ def edit_qsn(chapter_id,quiz_id,qsn_id):
     return render_template('edit_qsn.html',chapter_id=chapter_id,quiz_id=quiz_id,qsn=qsn)
 
 @app.route('/del_qsn/chapter<int:chapter_id>/quiz<int:quiz_id>/question<int:qsn_id>',methods=['GET'])
-def del_qsn(chapter_id,quiz_id,qsn_id):
-    if 'uid' not in session or session.get('uname')!='admin':
+def del_qsn(chapter_id, quiz_id, qsn_id):
+    if 'uid' not in session or session.get('uname') != 'admin':
        return redirect(url_for('login'))
 
-    conn=sql.connect('quiz_database.db')
-    curr=conn.cursor()
-    curr.execute('DELETE from question where id=? and quiz_id=?',(qsn_id,quiz_id))
+    conn = sql.connect('quiz_database.db')
+    curr = conn.cursor()
+    curr.execute('PRAGMA foreign_keys = ON;')
+    curr.execute('DELETE from question where id=? and quiz_id=?', (qsn_id, quiz_id))
     conn.commit()
     conn.close()
 
-    flash('Question deleted successfully','success')
-    return redirect(url_for('view_qsns',chapter_id=chapter_id,quiz_id=quiz_id))
+    flash('Question deleted successfully', 'success')
+    return redirect(url_for('view_qsns', chapter_id=chapter_id, quiz_id=quiz_id))
+
+@app.route('/del_quiz/chapter<int:chapter_id>/quiz<int:quiz_id>', methods=['GET'])
+def del_quiz(chapter_id, quiz_id):
+    if 'uid' not in session or session.get('uname') != 'admin':
+       return redirect(url_for('login'))
+     
+    conn = sql.connect('quiz_database.db')
+    curr = conn.cursor()
+    curr.execute('PRAGMA foreign_keys = ON;')
+    curr.execute('SELECT quiz_name FROM quiz WHERE id=? AND chapter_id=?', (quiz_id, chapter_id))
+    qname = curr.fetchone()
+    curr.execute('DELETE FROM quiz WHERE id=?', (quiz_id,))
+
+    conn.commit()
+    conn.close()
+
+    # Fallback just in case the quiz name isn't found
+    deleted_name = qname[0] if qname else "Unknown"
+    
+    flash(f"Quiz {deleted_name} deleted successfully", 'success')
+    return redirect(url_for('view_quizzes', chapter_id=chapter_id))
 
 @app.route('/allusers')
 def allusers():
@@ -487,4 +770,4 @@ def logout():
     return redirect(url_for('login',msg="Logged out successfully"))
 
 if __name__=="__main__":
-    app.run(host="0.0.0.0")
+    app.run(debug=True)
